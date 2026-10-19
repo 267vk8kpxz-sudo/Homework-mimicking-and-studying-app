@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "UserProfile",
+      "description": "User profile with display info and timestamp",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email", "createdAt", "updatedAt"]
+    },
+    "styleProfile": {
+      "title": "StyleProfile",
+      "description": "Analyzed personal writing tone and mathematical habits",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "summary": { "type": "string", "maxLength": 2000 },
+        "toneDescription": { "type": "string", "maxLength": 1000 },
+        "mathHabits": { "type": "string", "maxLength": 2000 },
+        "commonPhrases": { "type": "string", "maxLength": 1000 },
+        "vocabularyLevel": { "type": "string", "maxLength": 100 },
+        "formalityScore": { "type": "number" },
+        "stepDetailScore": { "type": "number" },
+        "sampleCount": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "summary", "updatedAt"]
+    },
+    "sample": {
+      "title": "Sample",
+      "description": "Past student essay, writing assignment, or math homework for voice calibration",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "type": { "type": "string", "enum": ["essay", "math_homework", "lab_report", "other"] },
+        "contentText": { "type": "string", "maxLength": 50000 },
+        "extractedTraits": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "subject", "type", "contentText", "createdAt"]
+    },
+    "note": {
+      "title": "Note",
+      "description": "School notes, lecture notes, textbook extracts, and study sheets",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "topic": { "type": "string", "maxLength": 150 },
+        "rawText": { "type": "string", "maxLength": 100000 },
+        "sectionHeaders": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "subject", "rawText", "createdAt", "updatedAt"]
+    },
+    "homework": {
+      "title": "Homework",
+      "description": "Analyzed homework problem with grounded note citation and personalized answer",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "questionText": { "type": "string", "maxLength": 5000 },
+        "imageUrl": { "type": "string", "maxLength": 50000 },
+        "exactQuote": { "type": "string", "maxLength": 4000 },
+        "noteSourceTitle": { "type": "string", "maxLength": 200 },
+        "noteSection": { "type": "string", "maxLength": 200 },
+        "personalizedAnswer": { "type": "string", "maxLength": 10000 },
+        "handwritingReady": { "type": "string", "maxLength": 10000 },
+        "styleExplanation": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "subject", "questionText", "personalizedAnswer", "createdAt"]
+    },
+    "deck": {
+      "title": "Deck",
+      "description": "Study flashcard deck generated from school notes or topics",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "cardCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "subject", "createdAt", "updatedAt"]
+    },
+    "deckCard": {
+      "title": "DeckCard",
+      "description": "Individual flashcard with term/question, definition, hint, and mastery status",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "front": { "type": "string", "maxLength": 2000 },
+        "back": { "type": "string", "maxLength": 5000 },
+        "hint": { "type": "string", "maxLength": 500 },
+        "mastered": { "type": "boolean" },
+        "starred": { "type": "boolean" },
+        "reviewCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "front", "back", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "Private user account profile"
+    },
+    "/users/{userId}/styleProfiles/{profileId}": {
+      "schema": "styleProfile",
+      "description": "Student voice and math notation DNA profile"
+    },
+    "/users/{userId}/samples/{sampleId}": {
+      "schema": "sample",
+      "description": "Historical essays and assignments used for style learning"
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": "note",
+      "description": "School notes organized by subject used for exact citation retrieval"
+    },
+    "/users/{userId}/homeworks/{homeworkId}": {
+      "schema": "homework",
+      "description": "Solved homework items with exact note quotes and personalized answer"
+    },
+    "/users/{userId}/decks/{deckId}": {
+      "schema": "deck",
+      "description": "Flashcard decks for study modes"
+    },
+    "/users/{userId}/decks/{deckId}/cards/{cardId}": {
+      "schema": "deckCard",
+      "description": "Cards belonging to a study deck"
+    }
+  }
+}

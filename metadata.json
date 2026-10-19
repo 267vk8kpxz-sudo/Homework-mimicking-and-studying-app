@@ -1,0 +1,6 @@
+{
+  "name": "EchoStudy - School Notes & Style-Matched Homework Solver",
+  "description": "Upload school notes and homework photos to receive exact section citations and answers written in your authentic writing and math formula style.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

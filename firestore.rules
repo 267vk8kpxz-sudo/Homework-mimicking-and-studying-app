@@ -1,0 +1,174 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all unknown paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['userId', 'email', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['userId', 'email', 'displayName', 'photoURL', 'createdAt', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1024));
+    }
+
+    function isValidStyleProfile(data) {
+      return data.keys().hasAll(['userId', 'summary', 'updatedAt']) &&
+             data.keys().hasOnly(['userId', 'summary', 'toneDescription', 'mathHabits', 'commonPhrases', 'vocabularyLevel', 'formalityScore', 'stepDetailScore', 'sampleCount', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.summary is string && data.summary.size() <= 4000 &&
+             (!('toneDescription' in data) || (data.toneDescription is string && data.toneDescription.size() <= 2000)) &&
+             (!('mathHabits' in data) || (data.mathHabits is string && data.mathHabits.size() <= 4000)) &&
+             (!('commonPhrases' in data) || (data.commonPhrases is string && data.commonPhrases.size() <= 2000)) &&
+             (!('vocabularyLevel' in data) || (data.vocabularyLevel is string && data.vocabularyLevel.size() <= 100)) &&
+             (!('formalityScore' in data) || (data.formalityScore is number)) &&
+             (!('stepDetailScore' in data) || (data.stepDetailScore is number)) &&
+             (!('sampleCount' in data) || (data.sampleCount is number));
+    }
+
+    function isValidSample(data) {
+      return data.keys().hasAll(['userId', 'title', 'subject', 'type', 'contentText', 'createdAt']) &&
+             data.keys().hasOnly(['userId', 'title', 'subject', 'type', 'contentText', 'extractedTraits', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.subject is string && data.subject.size() <= 100 &&
+             data.type is string && (data.type in ['essay', 'math_homework', 'lab_report', 'other']) &&
+             data.contentText is string && data.contentText.size() <= 100000 &&
+             (!('extractedTraits' in data) || (data.extractedTraits is string && data.extractedTraits.size() <= 4000));
+    }
+
+    function isValidNote(data) {
+      return data.keys().hasAll(['userId', 'title', 'subject', 'rawText', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['userId', 'title', 'subject', 'topic', 'rawText', 'sectionHeaders', 'createdAt', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.subject is string && data.subject.size() <= 100 &&
+             (!('topic' in data) || (data.topic is string && data.topic.size() <= 150)) &&
+             data.rawText is string && data.rawText.size() <= 200000 &&
+             (!('sectionHeaders' in data) || (data.sectionHeaders is string && data.sectionHeaders.size() <= 5000));
+    }
+
+    function isValidHomework(data) {
+      return data.keys().hasAll(['userId', 'subject', 'questionText', 'personalizedAnswer', 'createdAt']) &&
+             data.keys().hasOnly(['userId', 'subject', 'questionText', 'imageUrl', 'exactQuote', 'noteSourceTitle', 'noteSection', 'personalizedAnswer', 'handwritingReady', 'styleExplanation', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.subject is string && data.subject.size() <= 100 &&
+             data.questionText is string && data.questionText.size() <= 10000 &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 100000)) &&
+             (!('exactQuote' in data) || (data.exactQuote is string && data.exactQuote.size() <= 8000)) &&
+             (!('noteSourceTitle' in data) || (data.noteSourceTitle is string && data.noteSourceTitle.size() <= 200)) &&
+             (!('noteSection' in data) || (data.noteSection is string && data.noteSection.size() <= 200)) &&
+             data.personalizedAnswer is string && data.personalizedAnswer.size() <= 20000 &&
+             (!('handwritingReady' in data) || (data.handwritingReady is string && data.handwritingReady.size() <= 20000)) &&
+             (!('styleExplanation' in data) || (data.styleExplanation is string && data.styleExplanation.size() <= 4000));
+    }
+
+    function isValidDeck(data) {
+      return data.keys().hasAll(['userId', 'title', 'subject', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['userId', 'title', 'subject', 'description', 'cardCount', 'createdAt', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.subject is string && data.subject.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('cardCount' in data) || (data.cardCount is number));
+    }
+
+    function isValidDeckCard(data) {
+      return data.keys().hasAll(['userId', 'front', 'back', 'createdAt']) &&
+             data.keys().hasOnly(['userId', 'front', 'back', 'hint', 'mastered', 'starred', 'reviewCount', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.front is string && data.front.size() <= 2000 &&
+             data.back is string && data.back.size() <= 5000 &&
+             (!('hint' in data) || (data.hint is string && data.hint.size() <= 500)) &&
+             (!('mastered' in data) || (data.mastered is bool)) &&
+             (!('starred' in data) || (data.starred is bool)) &&
+             (!('reviewCount' in data) || (data.reviewCount is number));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isOwner(userId);
+
+      match /styleProfiles/{profileId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(profileId) && isValidStyleProfile(incoming());
+        allow update: if isOwner(userId) && isValidId(profileId) && isValidStyleProfile(incoming()) &&
+                         incoming().userId == existing().userId;
+        allow delete: if isOwner(userId) && isValidId(profileId);
+      }
+
+      match /samples/{sampleId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(sampleId) && isValidSample(incoming());
+        allow update: if isOwner(userId) && isValidId(sampleId) && isValidSample(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt;
+        allow delete: if isOwner(userId) && isValidId(sampleId);
+      }
+
+      match /notes/{noteId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(noteId) && isValidNote(incoming());
+        allow update: if isOwner(userId) && isValidId(noteId) && isValidNote(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt;
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+
+      match /homeworks/{homeworkId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(homeworkId) && isValidHomework(incoming());
+        allow update: if isOwner(userId) && isValidId(homeworkId) && isValidHomework(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt;
+        allow delete: if isOwner(userId) && isValidId(homeworkId);
+      }
+
+      match /decks/{deckId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(deckId) && isValidDeck(incoming());
+        allow update: if isOwner(userId) && isValidId(deckId) && isValidDeck(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt;
+        allow delete: if isOwner(userId) && isValidId(deckId);
+
+        match /cards/{cardId} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId) && isValidId(cardId) && isValidDeckCard(incoming());
+          allow update: if isOwner(userId) && isValidId(cardId) && isValidDeckCard(incoming()) &&
+                           incoming().userId == existing().userId &&
+                           incoming().createdAt == existing().createdAt;
+          allow delete: if isOwner(userId) && isValidId(cardId);
+        }
+      }
+    }
+  }
+}

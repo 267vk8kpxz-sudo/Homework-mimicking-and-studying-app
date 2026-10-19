@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #0d1117;
+    color: #f0f6fc;
+  }
+}
+
+.font-handwriting {
+  font-family: 'Caveat', cursive;
+}
+
+.font-mono-math {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Lined notebook paper aesthetic for the handwriting-ready view */
+.notebook-paper {
+  background-color: #161b22;
+  background-image: linear-gradient(#21262d 1px, transparent 1px);
+  background-size: 100% 2rem;
+  line-height: 2rem;
+  border-left: 3px solid #f85149;
+}
+
+/* Grid paper aesthetic for math view */
+.math-grid-paper {
+  background-color: #0f141c;
+  background-image: 
+    linear-gradient(to right, rgba(56, 139, 253, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 139, 253, 0.07) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
