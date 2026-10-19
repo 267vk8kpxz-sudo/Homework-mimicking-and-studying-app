@@ -3,6 +3,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged,
   User,
@@ -96,6 +98,55 @@ export async function loginWithGoogle() {
     console.error('Google Sign In Error:', error);
     throw error;
   }
+}
+
+export async function loginWithGoogleRedirect() {
+  try {
+    await signInWithRedirect(auth, googleProvider);
+  } catch (error: any) {
+    console.error('Google Sign In Redirect Error:', error);
+    throw error;
+  }
+}
+
+export function getAuthErrorMessage(error: any): { title: string; message: string; actionHint?: string } {
+  const code = error?.code || '';
+  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
+
+  if (code === 'auth/popup-blocked') {
+    return {
+      title: 'Safari Blocked the Sign-In Popup',
+      message: 'iOS Safari blocks popup windows by default. You can try the "Sign In with Redirect" button below, or turn off "Block Pop-ups" in your iPhone/iPad Settings > Safari.',
+      actionHint: 'use_redirect',
+    };
+  }
+
+  if (code === 'auth/unauthorized-domain') {
+    return {
+      title: 'Domain Not Authorized in Firebase',
+      message: `Your current website domain ("${currentDomain}") has not been added to Firebase authorized domains yet. You must add "${currentDomain}" in Firebase Console > Authentication > Settings > Authorized domains.`,
+      actionHint: 'unauthorized_domain',
+    };
+  }
+
+  if (code === 'auth/popup-closed-by-user') {
+    return {
+      title: 'Sign-in Cancelled',
+      message: 'The Google sign-in window was closed before finishing authentication.',
+    };
+  }
+
+  if (code === 'auth/cancelled-popup-request') {
+    return {
+      title: 'Request Cancelled',
+      message: 'Another sign-in attempt was already in progress.',
+    };
+  }
+
+  return {
+    title: 'Sign-In Error',
+    message: error?.message || 'Unable to sign in with Google. Check your internet connection or use Guest Mode.',
+  };
 }
 
 export async function logoutUser() {

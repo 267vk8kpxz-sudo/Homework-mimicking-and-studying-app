@@ -8,6 +8,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import {
   auth,
   loginWithGoogle,
+  logoutUser,
   SchoolNote,
   StyleProfile,
   WritingSample,
@@ -47,21 +48,137 @@ import {
   DEFAULT_SAMPLES,
   DEFAULT_DECKS,
 } from './data/defaultSamples';
-import { Sparkles, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+
+interface LocalStudentProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [studentUser, setStudentUser] = useState<LocalStudentProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('echostudy_student_profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'solve' | 'notes' | 'voice' | 'study' | 'history'>('solve');
-  const [guestBypassed, setGuestBypassed] = useState<boolean>(false);
   const isSeedingDecksRef = React.useRef<boolean>(false);
 
-  // Application Data States
-  const [notes, setNotes] = useState<SchoolNote[]>([]);
-  const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(null);
-  const [samples, setSamples] = useState<WritingSample[]>([]);
-  const [homeworks, setHomeworks] = useState<HomeworkRecord[]>([]);
-  const [decks, setDecks] = useState<Deck[]>([]);
+  // Application Data States (hydrated from localStorage or defaults)
+  const [notes, setNotes] = useState<SchoolNote[]>(() => {
+    try {
+      const saved = localStorage.getItem('echostudy_notes');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_NOTES.map((n, i) => ({
+      ...n,
+      id: `local_note_${i}`,
+      userId: 'student',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+  });
+
+  const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('echostudy_style');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      ...DEFAULT_STYLE_PROFILE,
+      userId: 'student',
+      updatedAt: new Date().toISOString(),
+    };
+  });
+
+  const [samples, setSamples] = useState<WritingSample[]>(() => {
+    try {
+      const saved = localStorage.getItem('echostudy_samples');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_SAMPLES.map((s, i) => ({
+      ...s,
+      id: `local_sample_${i}`,
+      userId: 'student',
+      createdAt: new Date().toISOString(),
+    }));
+  });
+
+  const [homeworks, setHomeworks] = useState<HomeworkRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('echostudy_homeworks');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const [decks, setDecks] = useState<Deck[]>(() => {
+    try {
+      const saved = localStorage.getItem('echostudy_decks');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_DECKS.map((d, i) => ({
+      id: `local_deck_${i}`,
+      userId: 'student',
+      title: d.title,
+      subject: d.subject,
+      description: d.description,
+      cardCount: d.cards.length,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      cards: d.cards.map((c, ci) => ({
+        id: `local_card_${i}_${ci}`,
+        userId: 'student',
+        front: c.front,
+        back: c.back,
+        hint: c.hint,
+        mastered: false,
+        starred: false,
+        reviewCount: 0,
+        createdAt: new Date().toISOString(),
+      })),
+    }));
+  });
+
+  // Keep localStorage updated with user's progress
+  useEffect(() => {
+    try {
+      localStorage.setItem('echostudy_notes', JSON.stringify(notes));
+    } catch {}
+  }, [notes]);
+
+  useEffect(() => {
+    if (styleProfile) {
+      try {
+        localStorage.setItem('echostudy_style', JSON.stringify(styleProfile));
+      } catch {}
+    }
+  }, [styleProfile]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('echostudy_samples', JSON.stringify(samples));
+    } catch {}
+  }, [samples]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('echostudy_homeworks', JSON.stringify(homeworks));
+    } catch {}
+  }, [homeworks]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('echostudy_decks', JSON.stringify(decks));
+    } catch {}
+  }, [decks]);
 
   // Track Firebase auth state
   useEffect(() => {
@@ -70,7 +187,6 @@ export default function App() {
       setAuthLoading(false);
 
       if (currentUser) {
-        // Sync user profile document in Firestore
         try {
           await syncUserProfile(currentUser);
           const profile = await getStyleProfile(currentUser.uid);
@@ -78,79 +194,31 @@ export default function App() {
             setStyleProfile(profile);
           }
         } catch (e) {
-          console.error('Error syncing profile:', e);
+          console.warn('Firebase profile sync info:', e);
         }
-      } else {
-        // Load initial starter demo data for guest exploration
-        setNotes(
-          DEFAULT_NOTES.map((n, i) => ({
-            ...n,
-            id: `demo_note_${i}`,
-            userId: 'guest',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }))
-        );
-        setStyleProfile({
-          ...DEFAULT_STYLE_PROFILE,
-          userId: 'guest',
-          updatedAt: new Date().toISOString(),
-        });
-        setSamples(
-          DEFAULT_SAMPLES.map((s, i) => ({
-            ...s,
-            id: `demo_sample_${i}`,
-            userId: 'guest',
-            createdAt: new Date().toISOString(),
-          }))
-        );
-        setDecks(
-          DEFAULT_DECKS.map((d, i) => ({
-            id: `demo_deck_${i}`,
-            userId: 'guest',
-            title: d.title,
-            subject: d.subject,
-            description: d.description,
-            cardCount: d.cards.length,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            cards: d.cards.map((c, ci) => ({
-              id: `demo_card_${i}_${ci}`,
-              userId: 'guest',
-              front: c.front,
-              back: c.back,
-              hint: c.hint,
-              mastered: false,
-              starred: false,
-              reviewCount: 0,
-              createdAt: new Date().toISOString(),
-            })),
-          }))
-        );
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Listen to Firestore updates when logged in
+  // Listen to Firestore updates when logged in to Firebase
   useEffect(() => {
     if (!user) return;
 
     const unsubNotes = subscribeNotes(user.uid, (remoteNotes) => {
-      setNotes(remoteNotes);
+      if (remoteNotes.length > 0) setNotes(remoteNotes);
     });
 
     const unsubSamples = subscribeSamples(user.uid, (remoteSamples) => {
-      setSamples(remoteSamples);
+      if (remoteSamples.length > 0) setSamples(remoteSamples);
     });
 
     const unsubHomeworks = subscribeHomeworks(user.uid, (remoteHws) => {
-      setHomeworks(remoteHws);
+      if (remoteHws.length > 0) setHomeworks(remoteHws);
     });
 
     const unsubDecks = subscribeDecks(user.uid, async (remoteDecks) => {
-      // If user has no remote decks on their first sign in, populate default starter decks once
       if (remoteDecks.length === 0 && !isSeedingDecksRef.current) {
         isSeedingDecksRef.current = true;
         try {
@@ -166,10 +234,9 @@ export default function App() {
             );
           }
         } catch (e) {
-          console.error('Error seeding initial decks:', e);
+          console.warn('Seeding decks in cloud:', e);
         }
       } else if (remoteDecks.length > 0) {
-        // Fetch cards for each deck
         const hydratedDecks: Deck[] = await Promise.all(
           remoteDecks.map(async (d) => {
             const cards = await getDeckCards(user.uid, d.id);
@@ -188,72 +255,103 @@ export default function App() {
     };
   }, [user]);
 
+  // Handle Instant Student Login
+  const handleInstantStudentLogin = (name: string) => {
+    const profile: LocalStudentProfile = {
+      uid: 'student_' + Date.now(),
+      displayName: name,
+      email: `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@student.edu`,
+    };
+    setStudentUser(profile);
+    try {
+      localStorage.setItem('echostudy_student_profile', JSON.stringify(profile));
+    } catch {}
+  };
+
+  const handleSignOut = async () => {
+    setStudentUser(null);
+    try {
+      localStorage.removeItem('echostudy_student_profile');
+      await logoutUser();
+    } catch {}
+  };
+
   // Actions for Notes
   const handleAddNote = async (
     newNote: Omit<SchoolNote, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
   ): Promise<SchoolNote> => {
     if (user) {
-      return await addNote(user.uid, newNote);
-    } else {
-      const localNote: SchoolNote = {
-        ...newNote,
-        id: `local_note_${Date.now()}`,
-        userId: 'guest',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setNotes((prev) => [localNote, ...prev]);
-      return localNote;
+      try {
+        return await addNote(user.uid, newNote);
+      } catch (e) {
+        console.warn('Saving note to local storage:', e);
+      }
     }
+    const localNote: SchoolNote = {
+      ...newNote,
+      id: `note_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: user?.uid || studentUser?.uid || 'student',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setNotes((prev) => [localNote, ...prev]);
+    return localNote;
   };
 
   const handleDeleteNote = async (noteId: string) => {
     if (user) {
-      await deleteNote(user.uid, noteId);
-    } else {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      try {
+        await deleteNote(user.uid, noteId);
+      } catch {}
     }
+    setNotes((prev) => prev.filter((n) => n.id !== noteId));
   };
 
   // Actions for Style Profile & Samples
   const handleSaveStyleProfile = async (profileData: Partial<StyleProfile>) => {
     if (user) {
-      await saveStyleProfile(user.uid, profileData);
-      const updated = await getStyleProfile(user.uid);
-      if (updated) setStyleProfile(updated);
-    } else {
-      setStyleProfile((prev) => ({
-        ...(prev || DEFAULT_STYLE_PROFILE),
-        ...profileData,
-        userId: 'guest',
-        updatedAt: new Date().toISOString(),
-      }));
+      try {
+        await saveStyleProfile(user.uid, profileData);
+        const updated = await getStyleProfile(user.uid);
+        if (updated) {
+          setStyleProfile(updated);
+          return;
+        }
+      } catch {}
     }
+    setStyleProfile((prev) => ({
+      ...(prev || DEFAULT_STYLE_PROFILE),
+      ...profileData,
+      userId: user?.uid || studentUser?.uid || 'student',
+      updatedAt: new Date().toISOString(),
+    }));
   };
 
   const handleAddSample = async (
     sampleData: Omit<WritingSample, 'id' | 'userId' | 'createdAt'>
   ): Promise<WritingSample> => {
     if (user) {
-      return await addWritingSample(user.uid, sampleData);
-    } else {
-      const localSample: WritingSample = {
-        ...sampleData,
-        id: `local_sample_${Date.now()}`,
-        userId: 'guest',
-        createdAt: new Date().toISOString(),
-      };
-      setSamples((prev) => [localSample, ...prev]);
-      return localSample;
+      try {
+        return await addWritingSample(user.uid, sampleData);
+      } catch {}
     }
+    const localSample: WritingSample = {
+      ...sampleData,
+      id: `sample_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: user?.uid || studentUser?.uid || 'student',
+      createdAt: new Date().toISOString(),
+    };
+    setSamples((prev) => [localSample, ...prev]);
+    return localSample;
   };
 
   const handleDeleteSample = async (sampleId: string) => {
     if (user) {
-      await deleteSample(user.uid, sampleId);
-    } else {
-      setSamples((prev) => prev.filter((s) => s.id !== sampleId));
+      try {
+        await deleteSample(user.uid, sampleId);
+      } catch {}
     }
+    setSamples((prev) => prev.filter((s) => s.id !== sampleId));
   };
 
   // Actions for Homework
@@ -261,24 +359,26 @@ export default function App() {
     hwData: Omit<HomeworkRecord, 'id' | 'userId' | 'createdAt'>
   ) => {
     if (user) {
-      await saveHomework(user.uid, hwData);
-    } else {
-      const localHw: HomeworkRecord = {
-        ...hwData,
-        id: `local_hw_${Date.now()}`,
-        userId: 'guest',
-        createdAt: new Date().toISOString(),
-      };
-      setHomeworks((prev) => [localHw, ...prev]);
+      try {
+        await saveHomework(user.uid, hwData);
+      } catch {}
     }
+    const localHw: HomeworkRecord = {
+      ...hwData,
+      id: `hw_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: user?.uid || studentUser?.uid || 'student',
+      createdAt: new Date().toISOString(),
+    };
+    setHomeworks((prev) => [localHw, ...prev]);
   };
 
   const handleDeleteHomework = async (hwId: string) => {
     if (user) {
-      await deleteHomework(user.uid, hwId);
-    } else {
-      setHomeworks((prev) => prev.filter((h) => h.id !== hwId));
+      try {
+        await deleteHomework(user.uid, hwId);
+      } catch {}
     }
+    setHomeworks((prev) => prev.filter((h) => h.id !== hwId));
   };
 
   // Actions for Decks & Study Cards
@@ -287,32 +387,33 @@ export default function App() {
     cards: Array<{ front: string; back: string; hint?: string }>
   ): Promise<Deck> => {
     if (user) {
-      return await createDeckWithCards(user.uid, deckData, cards);
-    } else {
-      const newLocalDeck: Deck = {
-        id: `local_deck_${Date.now()}`,
-        userId: 'guest',
-        title: deckData.title,
-        subject: deckData.subject,
-        description: deckData.description,
-        cardCount: cards.length,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        cards: cards.map((c, i) => ({
-          id: `local_card_${Date.now()}_${i}`,
-          userId: 'guest',
-          front: c.front,
-          back: c.back,
-          hint: c.hint,
-          mastered: false,
-          starred: false,
-          reviewCount: 0,
-          createdAt: new Date().toISOString(),
-        })),
-      };
-      setDecks((prev) => [newLocalDeck, ...prev]);
-      return newLocalDeck;
+      try {
+        return await createDeckWithCards(user.uid, deckData, cards);
+      } catch {}
     }
+    const newLocalDeck: Deck = {
+      id: `deck_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: user?.uid || studentUser?.uid || 'student',
+      title: deckData.title,
+      subject: deckData.subject,
+      description: deckData.description,
+      cardCount: cards.length,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      cards: cards.map((c, i) => ({
+        id: `card_${Date.now()}_${i}`,
+        userId: user?.uid || studentUser?.uid || 'student',
+        front: c.front,
+        back: c.back,
+        hint: c.hint,
+        mastered: false,
+        starred: false,
+        reviewCount: 0,
+        createdAt: new Date().toISOString(),
+      })),
+    };
+    setDecks((prev) => [newLocalDeck, ...prev]);
+    return newLocalDeck;
   };
 
   const handleUpdateCardStatus = async (
@@ -321,9 +422,10 @@ export default function App() {
     updates: Partial<Pick<DeckCard, 'mastered' | 'starred'>>
   ) => {
     if (user) {
-      await updateDeckCard(user.uid, deckId, cardId, updates);
+      try {
+        await updateDeckCard(user.uid, deckId, cardId, updates);
+      } catch {}
     }
-    // Update in local state for instantaneous feedback
     setDecks((prev) =>
       prev.map((d) => {
         if (d.id !== deckId) return d;
@@ -340,57 +442,89 @@ export default function App() {
 
   const handleDeleteDeck = async (deckId: string) => {
     if (user) {
-      await deleteDeck(user.uid, deckId);
-    } else {
-      setDecks((prev) => prev.filter((d) => d.id !== deckId));
+      try {
+        await deleteDeck(user.uid, deckId);
+      } catch {}
     }
+    setDecks((prev) => prev.filter((d) => d.id !== deckId));
   };
 
   const handleLoadDefaultNotes = async () => {
-    if (user) {
-      for (const n of DEFAULT_NOTES) {
-        await addNote(user.uid, n);
-      }
-    }
+    setNotes(
+      DEFAULT_NOTES.map((n, i) => ({
+        ...n,
+        id: `note_default_${i}_${Date.now()}`,
+        userId: user?.uid || studentUser?.uid || 'student',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }))
+    );
   };
 
   const handleLoadDefaultSamples = async () => {
-    if (user) {
-      for (const s of DEFAULT_SAMPLES) {
-        await addWritingSample(user.uid, s);
-      }
-      await saveStyleProfile(user.uid, DEFAULT_STYLE_PROFILE);
-      const updated = await getStyleProfile(user.uid);
-      if (updated) setStyleProfile(updated);
-    }
+    setSamples(
+      DEFAULT_SAMPLES.map((s, i) => ({
+        ...s,
+        id: `sample_default_${i}_${Date.now()}`,
+        userId: user?.uid || studentUser?.uid || 'student',
+        createdAt: new Date().toISOString(),
+      }))
+    );
+    setStyleProfile({
+      ...DEFAULT_STYLE_PROFILE,
+      userId: user?.uid || studentUser?.uid || 'student',
+      updatedAt: new Date().toISOString(),
+    });
   };
 
   const handleLoadDefaultDecks = async () => {
-    if (user) {
-      for (const defaultDeck of DEFAULT_DECKS) {
-        await createDeckWithCards(
-          user.uid,
-          {
-            title: defaultDeck.title,
-            subject: defaultDeck.subject,
-            description: defaultDeck.description,
-          },
-          defaultDeck.cards
-        );
-      }
-    }
+    setDecks(
+      DEFAULT_DECKS.map((d, i) => ({
+        id: `deck_default_${i}_${Date.now()}`,
+        userId: user?.uid || studentUser?.uid || 'student',
+        title: d.title,
+        subject: d.subject,
+        description: d.description,
+        cardCount: d.cards.length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        cards: d.cards.map((c, ci) => ({
+          id: `card_default_${i}_${ci}`,
+          userId: user?.uid || studentUser?.uid || 'student',
+          front: c.front,
+          back: c.back,
+          hint: c.hint,
+          mastered: false,
+          starred: false,
+          reviewCount: 0,
+          createdAt: new Date().toISOString(),
+        })),
+      }))
+    );
   };
 
-  // Google Login Gate: When not signed in and not bypassed, require sign-in first
-  if (!user && !guestBypassed && !authLoading) {
-    return <LoginGate onBypassForDemo={() => setGuestBypassed(true)} />;
+  // Determine active profile for Navbar
+  const effectiveUser =
+    user ||
+    (studentUser
+      ? ({
+          uid: studentUser.uid,
+          displayName: studentUser.displayName,
+          email: studentUser.email,
+          photoURL: studentUser.photoURL,
+        } as any)
+      : null);
+
+  // If not logged in and no student user is active, show the LoginGate
+  if (!effectiveUser && !authLoading) {
+    return <LoginGate onInstantStudentLogin={handleInstantStudentLogin} />;
   }
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
       {/* Top Navigation */}
       <Navbar
-        user={user}
+        user={effectiveUser}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         styleProfile={styleProfile}
@@ -398,21 +532,6 @@ export default function App() {
         notesCount={notes.length}
         deckCount={decks.length}
       />
-
-      {/* Guest Demo Notice if bypassed */}
-      {!user && (
-        <div className="bg-amber-950/30 border-b border-amber-500/20 py-2 px-4 text-center text-xs text-amber-300">
-          <span>
-            <strong>Demo Preview Mode:</strong> Sign in with Google anytime to save your decks and notes to the cloud.
-          </span>
-          <button
-            onClick={() => loginWithGoogle()}
-            className="ml-3 underline font-bold hover:text-white"
-          >
-            Sign in with Google
-          </button>
-        </div>
-      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8">
@@ -477,7 +596,7 @@ export default function App() {
           <div className="flex items-center space-x-4 text-slate-400">
             <span className="flex items-center space-x-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Firebase Cloud Authentication</span>
+              <span>Full Local &amp; Cloud Persistence</span>
             </span>
             <span>Powered by Gemini 3.8</span>
           </div>
