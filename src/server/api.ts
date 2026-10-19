@@ -318,6 +318,46 @@ Output ONLY a JSON array of cards conforming to:
 });
 
 /**
+ * Helper to generate algorithmic quiz questions from cards if Gemini is temporarily under high demand
+ */
+function generateFallbackQuiz(cards: any[], mode: string) {
+  return cards.map((card, idx) => {
+    const otherBacks = cards
+      .filter((_, i) => i !== idx)
+      .map((c) => c.back);
+    const shuffledDistractors = otherBacks.sort(() => 0.5 - Math.random()).slice(0, 3);
+    const options = [card.back, ...shuffledDistractors].sort(() => 0.5 - Math.random());
+    return {
+      id: `q_${idx + 1}`,
+      type: 'multiple_choice',
+      prompt: mode === 'cram'
+        ? `[Speed Recall] Identify the correct definition / formula: "${card.front}"`
+        : `What best defines or solves: "${card.front}"?`,
+      options,
+      correctAnswer: card.back,
+      explanation: `Correct definition: ${card.back}${card.hint ? ` (Hint: ${card.hint})` : ''}`,
+      sourceCardFront: card.front,
+    };
+  });
+}
+
+function fallbackCheckRecall(targetAnswer: string, userAnswer: string) {
+  const targetWords = targetAnswer.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w) => w.length > 2);
+  const userWords = userAnswer.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w) => w.length > 2);
+  const matched = targetWords.filter((w) => userWords.includes(w));
+  const accuracy = Math.min(100, Math.round((matched.length / Math.max(1, targetWords.length)) * 100));
+  const isCorrect = accuracy >= 45 || userAnswer.trim().toLowerCase() === targetAnswer.trim().toLowerCase();
+  return {
+    isCorrect,
+    accuracyPercent: accuracy,
+    feedback: isCorrect
+      ? 'Good active recall! You captured the main keywords and core concept.'
+      : 'Some key terms were missed. Compare your answer with the target below.',
+    missingKeywords: targetWords.filter((w) => !userWords.includes(w)).slice(0, 4),
+  };
+}
+
+/**
  * Generate adaptive Quizlet-style questions (Multiple Choice & Written Recall) for Learn & Cram Mode
  */
 apiRouter.post('/generate-quiz', async (req: Request, res: Response) => {
@@ -328,7 +368,8 @@ apiRouter.post('/generate-quiz', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Cards array is required.' });
     }
 
-    const promptText = `
+    try {
+      const promptText = `
 You are an elite study coach building an adaptive ${mode === 'cram' ? 'HIGH-INTENSITY EXAM CRAM CHALLENGE' : 'QUIZLET-STYLE LEARN MODE'}.
 
 Cards Deck:
@@ -345,9 +386,9 @@ Output ONLY a JSON array of questions conforming to:
 [
   {
     "id": "q1",
-    "type": "multiple_choice", // "multiple_choice" or "written"
+    "type": "multiple_choice",
     "prompt": "Question or term definition prompt",
-    "options": ["Option A", "Option B", "Option C", "Option D"], // For multiple_choice
+    "options": ["Option A", "Option B", "Option C", "Option D"],
     "correctAnswer": "Exact correct option string",
     "explanation": "Why this is correct and what trap to avoid",
     "sourceCardFront": "Original card front reference"
@@ -355,17 +396,26 @@ Output ONLY a JSON array of questions conforming to:
 ]
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: [{ text: promptText }],
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [{ text: promptText }],
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
 
-    const rawText = response.text || '[]';
-    const questions = JSON.parse(cleanJsonOutput(rawText));
-    return res.json({ success: true, questions: Array.isArray(questions) ? questions : [] });
+      const rawText = response.text || '[]';
+      const questions = JSON.parse(cleanJsonOutput(rawText));
+      if (Array.isArray(questions) && questions.length > 0) {
+        return res.json({ success: true, questions });
+      }
+    } catch (aiErr: any) {
+      console.warn('Gemini generateContent temporary error, using algorithmic quiz generator:', aiErr.message);
+    }
+
+    // Algorithmic Quizlet-style question generator fallback
+    const fallbackQuestions = generateFallbackQuiz(cards, mode);
+    return res.json({ success: true, questions: fallbackQuestions });
   } catch (error: any) {
     console.error('Error generating quiz:', error);
     return res.status(500).json({ error: error.message || 'Failed to generate study session.' });
@@ -383,7 +433,8 @@ apiRouter.post('/check-memorize-recall', async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'targetAnswer and userAnswer are required.' });
     }
 
-    const promptText = `
+    try {
+      const promptText = `
 You are an evaluation assistant for active recall study. Compare the student's typed response with the target answer.
 Prompt: "${questionPrompt}"
 Target Expected Answer: "${targetAnswer}"
@@ -393,24 +444,32 @@ Grade leniently for minor typos, abbreviations, or formatting differences as lon
 
 Output ONLY a valid JSON:
 {
-  "isCorrect": true, // boolean
-  "accuracyPercent": 95, // 0-100
+  "isCorrect": true,
+  "accuracyPercent": 95,
   "feedback": "Short encouraging explanation of accuracy and what (if anything) was missing or slightly off",
   "missingKeywords": ["any", "omitted", "essential", "keywords"]
 }
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: [{ text: promptText }],
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [{ text: promptText }],
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
 
-    const rawText = response.text || '{}';
-    const parsed = JSON.parse(cleanJsonOutput(rawText));
-    return res.json({ success: true, result: parsed });
+      const rawText = response.text || '{}';
+      const parsed = JSON.parse(cleanJsonOutput(rawText));
+      if (parsed && typeof parsed.isCorrect === 'boolean') {
+        return res.json({ success: true, result: parsed });
+      }
+    } catch (aiErr: any) {
+      console.warn('Gemini recall check temporary error, using algorithmic evaluation:', aiErr.message);
+    }
+
+    const fallbackResult = fallbackCheckRecall(targetAnswer, userAnswer);
+    return res.json({ success: true, result: fallbackResult });
   } catch (error: any) {
     console.error('Error checking recall:', error);
     return res.status(500).json({ error: error.message || 'Failed to check recall.' });
@@ -420,4 +479,5 @@ Output ONLY a valid JSON:
 apiRouter.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'EchoStudy API', timestamp: new Date().toISOString() });
 });
+
 

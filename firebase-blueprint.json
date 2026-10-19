@@ -5,6 +5,7 @@
       "description": "User profile with display info and timestamp",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "email": { "type": "string", "maxLength": 256 },
         "displayName": { "type": "string", "maxLength": 128 },
@@ -19,6 +20,7 @@
       "description": "Analyzed personal writing tone and mathematical habits",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "summary": { "type": "string", "maxLength": 2000 },
         "toneDescription": { "type": "string", "maxLength": 1000 },
@@ -37,6 +39,7 @@
       "description": "Past student essay, writing assignment, or math homework for voice calibration",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "title": { "type": "string", "maxLength": 200 },
         "subject": { "type": "string", "maxLength": 100 },
@@ -52,6 +55,7 @@
       "description": "School notes, lecture notes, textbook extracts, and study sheets",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "title": { "type": "string", "maxLength": 200 },
         "subject": { "type": "string", "maxLength": 100 },
@@ -68,6 +72,7 @@
       "description": "Analyzed homework problem with grounded note citation and personalized answer",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "subject": { "type": "string", "maxLength": 100 },
         "questionText": { "type": "string", "maxLength": 5000 },
@@ -87,6 +92,7 @@
       "description": "Study flashcard deck generated from school notes or topics",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "title": { "type": "string", "maxLength": 200 },
         "subject": { "type": "string", "maxLength": 100 },
@@ -102,6 +108,7 @@
       "description": "Individual flashcard with term/question, definition, hint, and mastery status",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "front": { "type": "string", "maxLength": 2000 },
         "back": { "type": "string", "maxLength": 5000 },

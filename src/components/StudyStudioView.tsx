@@ -97,6 +97,15 @@ export const StudyStudioView: React.FC<StudyStudioViewProps> = ({
   const cards: DeckCard[] = activeDeck?.cards || [];
   const currentCard = cards[cardIndex] || cards[0];
 
+  // Keep activeDeckId in sync with loaded decks
+  useEffect(() => {
+    if (decks.length > 0 && !decks.some((d) => d.id === activeDeckId)) {
+      setActiveDeckId(decks[0].id);
+      setCardIndex(0);
+      setIsFlipped(false);
+    }
+  }, [decks, activeDeckId]);
+
   // Cram timer effect
   useEffect(() => {
     let interval: any = null;
@@ -172,6 +181,26 @@ export const StudyStudioView: React.FC<StudyStudioViewProps> = ({
     }
   };
 
+  const buildClientQuiz = (cardList: DeckCard[], mode: string) => {
+    return cardList.map((card, idx) => {
+      const otherBacks = cardList.filter((_, i) => i !== idx).map((c) => c.back);
+      const shuffled = otherBacks.sort(() => 0.5 - Math.random()).slice(0, 3);
+      const options = [card.back, ...shuffled].sort(() => 0.5 - Math.random());
+      return {
+        id: `client_q_${idx + 1}`,
+        type: 'multiple_choice',
+        prompt:
+          mode === 'cram'
+            ? `[Speed Recall] Identify the correct definition / formula: "${card.front}"`
+            : `What best matches or defines: "${card.front}"?`,
+        options,
+        correctAnswer: card.back,
+        explanation: `Definition: ${card.back}${card.hint ? ` (Hint: ${card.hint})` : ''}`,
+        sourceCardFront: card.front,
+      };
+    });
+  };
+
   // Start Learn Mode
   const startLearnMode = async () => {
     if (!cards || cards.length === 0) return;
@@ -194,12 +223,19 @@ export const StudyStudioView: React.FC<StudyStudioViewProps> = ({
         }),
       });
       const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.questions)) {
+      if (res.ok && data.success && Array.isArray(data.questions) && data.questions.length > 0) {
         setLearnQuestions(data.questions);
+        setStudyMode('learn');
+      } else {
+        const fallback = buildClientQuiz(cards, 'learn');
+        setLearnQuestions(fallback);
         setStudyMode('learn');
       }
     } catch (err) {
-      console.error('Quiz error:', err);
+      console.warn('AI quiz error, falling back to instant client quiz:', err);
+      const fallback = buildClientQuiz(cards, 'learn');
+      setLearnQuestions(fallback);
+      setStudyMode('learn');
     } finally {
       setIsGeneratingQuiz(false);
     }
@@ -250,13 +286,22 @@ export const StudyStudioView: React.FC<StudyStudioViewProps> = ({
         }),
       });
       const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.questions)) {
+      if (res.ok && data.success && Array.isArray(data.questions) && data.questions.length > 0) {
         setCramQuestions(data.questions);
+        setStudyMode('cram');
+        setIsCramRunning(true);
+      } else {
+        const fallback = buildClientQuiz(cards, 'cram');
+        setCramQuestions(fallback);
         setStudyMode('cram');
         setIsCramRunning(true);
       }
     } catch (err) {
-      console.error('Cram generation error:', err);
+      console.warn('AI cram error, falling back to instant client cram:', err);
+      const fallback = buildClientQuiz(cards, 'cram');
+      setCramQuestions(fallback);
+      setStudyMode('cram');
+      setIsCramRunning(true);
     } finally {
       setIsGeneratingQuiz(false);
     }

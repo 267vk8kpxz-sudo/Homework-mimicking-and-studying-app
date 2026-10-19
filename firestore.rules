@@ -29,7 +29,8 @@ service cloud.firestore {
 
     function isValidUserProfile(data) {
       return data.keys().hasAll(['userId', 'email', 'createdAt', 'updatedAt']) &&
-             data.keys().hasOnly(['userId', 'email', 'displayName', 'photoURL', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'email', 'displayName', 'photoURL', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
              data.userId == request.auth.uid &&
              data.email is string && data.email.size() <= 256 &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
@@ -38,7 +39,8 @@ service cloud.firestore {
 
     function isValidStyleProfile(data) {
       return data.keys().hasAll(['userId', 'summary', 'updatedAt']) &&
-             data.keys().hasOnly(['userId', 'summary', 'toneDescription', 'mathHabits', 'commonPhrases', 'vocabularyLevel', 'formalityScore', 'stepDetailScore', 'sampleCount', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'summary', 'toneDescription', 'mathHabits', 'commonPhrases', 'vocabularyLevel', 'formalityScore', 'stepDetailScore', 'sampleCount', 'updatedAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
              data.userId == request.auth.uid &&
              data.summary is string && data.summary.size() <= 4000 &&
              (!('toneDescription' in data) || (data.toneDescription is string && data.toneDescription.size() <= 2000)) &&
@@ -52,7 +54,8 @@ service cloud.firestore {
 
     function isValidSample(data) {
       return data.keys().hasAll(['userId', 'title', 'subject', 'type', 'contentText', 'createdAt']) &&
-             data.keys().hasOnly(['userId', 'title', 'subject', 'type', 'contentText', 'extractedTraits', 'createdAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'title', 'subject', 'type', 'contentText', 'extractedTraits', 'createdAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
              data.userId == request.auth.uid &&
              data.title is string && data.title.size() <= 200 &&
              data.subject is string && data.subject.size() <= 100 &&
@@ -63,7 +66,8 @@ service cloud.firestore {
 
     function isValidNote(data) {
       return data.keys().hasAll(['userId', 'title', 'subject', 'rawText', 'createdAt', 'updatedAt']) &&
-             data.keys().hasOnly(['userId', 'title', 'subject', 'topic', 'rawText', 'sectionHeaders', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'title', 'subject', 'topic', 'rawText', 'sectionHeaders', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
              data.userId == request.auth.uid &&
              data.title is string && data.title.size() <= 200 &&
              data.subject is string && data.subject.size() <= 100 &&
@@ -74,7 +78,8 @@ service cloud.firestore {
 
     function isValidHomework(data) {
       return data.keys().hasAll(['userId', 'subject', 'questionText', 'personalizedAnswer', 'createdAt']) &&
-             data.keys().hasOnly(['userId', 'subject', 'questionText', 'imageUrl', 'exactQuote', 'noteSourceTitle', 'noteSection', 'personalizedAnswer', 'handwritingReady', 'styleExplanation', 'createdAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'subject', 'questionText', 'imageUrl', 'exactQuote', 'noteSourceTitle', 'noteSection', 'personalizedAnswer', 'handwritingReady', 'styleExplanation', 'createdAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
              data.userId == request.auth.uid &&
              data.subject is string && data.subject.size() <= 100 &&
              data.questionText is string && data.questionText.size() <= 10000 &&
@@ -89,7 +94,8 @@ service cloud.firestore {
 
     function isValidDeck(data) {
       return data.keys().hasAll(['userId', 'title', 'subject', 'createdAt', 'updatedAt']) &&
-             data.keys().hasOnly(['userId', 'title', 'subject', 'description', 'cardCount', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'title', 'subject', 'description', 'cardCount', 'createdAt', 'updatedAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
              data.userId == request.auth.uid &&
              data.title is string && data.title.size() <= 200 &&
              data.subject is string && data.subject.size() <= 100 &&
@@ -99,7 +105,8 @@ service cloud.firestore {
 
     function isValidDeckCard(data) {
       return data.keys().hasAll(['userId', 'front', 'back', 'createdAt']) &&
-             data.keys().hasOnly(['userId', 'front', 'back', 'hint', 'mastered', 'starred', 'reviewCount', 'createdAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'front', 'back', 'hint', 'mastered', 'starred', 'reviewCount', 'createdAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
              data.userId == request.auth.uid &&
              data.front is string && data.front.size() <= 2000 &&
              data.back is string && data.back.size() <= 5000 &&

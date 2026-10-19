@@ -54,6 +54,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'solve' | 'notes' | 'voice' | 'study' | 'history'>('solve');
   const [guestBypassed, setGuestBypassed] = useState<boolean>(false);
+  const isSeedingDecksRef = React.useRef<boolean>(false);
 
   // Application Data States
   const [notes, setNotes] = useState<SchoolNote[]>([]);
@@ -149,20 +150,25 @@ export default function App() {
     });
 
     const unsubDecks = subscribeDecks(user.uid, async (remoteDecks) => {
-      // If user has no remote decks on their first sign in, populate default starter decks
-      if (remoteDecks.length === 0) {
-        for (const defaultDeck of DEFAULT_DECKS) {
-          await createDeckWithCards(
-            user.uid,
-            {
-              title: defaultDeck.title,
-              subject: defaultDeck.subject,
-              description: defaultDeck.description,
-            },
-            defaultDeck.cards
-          );
+      // If user has no remote decks on their first sign in, populate default starter decks once
+      if (remoteDecks.length === 0 && !isSeedingDecksRef.current) {
+        isSeedingDecksRef.current = true;
+        try {
+          for (const defaultDeck of DEFAULT_DECKS) {
+            await createDeckWithCards(
+              user.uid,
+              {
+                title: defaultDeck.title,
+                subject: defaultDeck.subject,
+                description: defaultDeck.description,
+              },
+              defaultDeck.cards
+            );
+          }
+        } catch (e) {
+          console.error('Error seeding initial decks:', e);
         }
-      } else {
+      } else if (remoteDecks.length > 0) {
         // Fetch cards for each deck
         const hydratedDecks: Deck[] = await Promise.all(
           remoteDecks.map(async (d) => {
